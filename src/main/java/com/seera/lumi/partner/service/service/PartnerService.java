@@ -48,12 +48,15 @@ public class PartnerService {
 
         // Generate client credentials
         partner.setClientId(UUID.randomUUID().toString());
+        String plainClientSecret = "sk_" + UUID.randomUUID().toString().replace("-", "");
+        partner.setClientSecretHash(passwordEncoder.encode(plainClientSecret));
 
         partner = partnerRepository.save(partner);
         log.info("Created partner: code={}, partnerId={}", partner.getPartnerCode(), partner.getPartnerId());
 
         PartnerResponse response = partnerMapper.toResponse(partner);
         response.setApiKey(plainApiKey);
+        response.setClientSecret(plainClientSecret);
         return response;
     }
 

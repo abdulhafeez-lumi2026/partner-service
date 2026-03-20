@@ -40,4 +40,7 @@ public class PartnerResponse {
 
     /** Only populated on create response — the plain-text API key shown once */
     private String apiKey;
+
+    /** Only populated on create response — the plain-text client secret shown once */
+    private String clientSecret;
 }
