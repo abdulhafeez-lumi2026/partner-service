@@ -25,6 +25,10 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+jwt:
+  secret: ${JWT_SECRET:lumi-partner-jwt-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
 management:
   endpoints:
     web:

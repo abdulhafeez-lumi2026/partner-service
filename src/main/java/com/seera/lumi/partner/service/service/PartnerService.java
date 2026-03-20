@@ -6,8 +6,10 @@ import com.seera.lumi.partner.service.controller.response.ApiKeyResponse;
 import com.seera.lumi.partner.service.controller.response.PartnerResponse;
 import com.seera.lumi.partner.service.entity.Partner;
 import com.seera.lumi.partner.service.enums.PartnerStatus;
+import com.seera.lumi.partner.service.exception.AuthenticationException;
 import com.seera.lumi.partner.service.exception.PartnerAlreadyExistsException;
 import com.seera.lumi.partner.service.exception.PartnerNotFoundException;
+import com.seera.lumi.partner.service.exception.PartnerSuspendedException;
 import com.seera.lumi.partner.service.mapper.PartnerMapper;
 import com.seera.lumi.partner.service.repository.PartnerRepository;
 import lombok.RequiredArgsConstructor;
@@ -133,6 +135,29 @@ public class PartnerService {
             }
         }
         throw new PartnerNotFoundException("Invalid API key");
+    }
+
+    @Transactional(readOnly = true)
+    public Partner authenticatePartner(String clientId, String clientSecret) {
+        Partner partner = partnerRepository.findByClientId(clientId)
+                .orElseThrow(() -> new AuthenticationException("Invalid client credentials"));
+
+        if (partner.getClientSecretHash() == null || !passwordEncoder.matches(clientSecret, partner.getClientSecretHash())) {
+            throw new AuthenticationException("Invalid client credentials");
+        }
+
+        if (partner.getStatus() != PartnerStatus.ACTIVE) {
+            throw new PartnerSuspendedException("Partner account is " + partner.getStatus().name().toLowerCase());
+        }
+
+        return partner;
+    }
+
+    @Transactional(readOnly = true)
+    public Partner findByClientId(String clientId) {
+        return partnerRepository.findByClientId(clientId)
+                .orElseThrow(() -> new PartnerNotFoundException(
+                        "Partner with clientId '" + clientId + "' not found"));
     }
 
     private Partner findByPartnerCode(String partnerCode) {

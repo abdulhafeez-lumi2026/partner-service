@@ -18,6 +18,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/partner/auth/**").permitAll()
                         .requestMatchers("/internal/api/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         // TODO: Integrate Keycloak for /api/v1/partners/** authentication
