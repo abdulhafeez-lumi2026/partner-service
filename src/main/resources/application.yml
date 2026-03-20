@@ -29,6 +29,10 @@ jwt:
   secret: ${JWT_SECRET:lumi-partner-jwt-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
 
+partner:
+  admin:
+    token: ${PARTNER_ADMIN_TOKEN:ADMIN_20032026}
+
 management:
   endpoints:
     web:
