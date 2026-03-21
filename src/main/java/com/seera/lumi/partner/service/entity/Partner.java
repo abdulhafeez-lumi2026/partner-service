@@ -37,6 +37,9 @@ public class Partner {
     @Column(name = "contact_email", nullable = false)
     private String contactEmail;
 
+    @Column(name = "debtor_code", nullable = false, length = 50)
+    private String debtorCode;
+
     @Column(name = "api_key_hash")
     private String apiKeyHash;
 

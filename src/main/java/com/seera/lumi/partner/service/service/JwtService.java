@@ -31,6 +31,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(partner.getPartnerId())
                 .claim("partnerCode", partner.getPartnerCode())
+                .claim("debtorCode", partner.getDebtorCode())
                 .claim("quoteMode", partner.getQuoteMode().name())
                 .claim("bookingMode", partner.getBookingMode().name())
                 .claim("allowedBranches", partner.getAllowedBranches())

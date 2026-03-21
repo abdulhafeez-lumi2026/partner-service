@@ -28,6 +28,9 @@ public class CreatePartnerRequest {
     @Email(message = "Contact email must be a valid email address")
     private String contactEmail;
 
+    @NotBlank(message = "Debtor code is required")
+    private String debtorCode;
+
     private BigDecimal commissionPercentage;
 
     private QuoteMode quoteMode;

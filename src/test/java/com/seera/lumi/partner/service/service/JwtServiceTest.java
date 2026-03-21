@@ -36,6 +36,7 @@ class JwtServiceTest {
                 .partnerCode("KAYAK")
                 .name("Kayak")
                 .contactEmail("partner@kayak.com")
+                .debtorCode("DEB-KAYAK-001")
                 .status(PartnerStatus.ACTIVE)
                 .rateLimit(120)
                 .quoteMode(QuoteMode.FULL)
@@ -54,6 +55,7 @@ class JwtServiceTest {
         Claims claims = jwtService.validateToken(token);
         assertThat(claims.getSubject()).isEqualTo("partner-uuid-123");
         assertThat(claims.get("partnerCode", String.class)).isEqualTo("KAYAK");
+        assertThat(claims.get("debtorCode", String.class)).isEqualTo("DEB-KAYAK-001");
         assertThat(claims.get("quoteMode", String.class)).isEqualTo("FULL");
         assertThat(claims.get("bookingMode", String.class)).isEqualTo("PAY_NOW");
         assertThat(claims.get("allowedBranches", String.class)).isEqualTo("RUH,JED");

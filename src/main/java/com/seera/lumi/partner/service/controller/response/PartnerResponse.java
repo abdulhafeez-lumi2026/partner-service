@@ -24,6 +24,7 @@ public class PartnerResponse {
     private String partnerCode;
     private String name;
     private String contactEmail;
+    private String debtorCode;
     private String clientId;
     private PartnerStatus status;
     private Integer rateLimit;

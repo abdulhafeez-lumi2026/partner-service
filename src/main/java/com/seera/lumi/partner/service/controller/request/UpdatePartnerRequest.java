@@ -22,6 +22,8 @@ public class UpdatePartnerRequest {
     @Email(message = "Contact email must be a valid email address")
     private String contactEmail;
 
+    private String debtorCode;
+
     private BigDecimal commissionPercentage;
 
     private QuoteMode quoteMode;
