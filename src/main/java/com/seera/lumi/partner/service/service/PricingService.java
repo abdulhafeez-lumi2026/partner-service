@@ -192,26 +192,27 @@ public class PricingService {
             }
 
             // PAY_AND_GO: rental + CDW (Collision Damage Waiver)
+            // finalPrice from pricing already includes VAT (rentalSum + vat)
             packages.add(PricingPackage.builder()
                     .type("PAY_AND_GO")
                     .description("Rental with CDW insurance included")
                     .baseRate(discRentalSum.add(discAmount))
                     .discountPercentage(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
                     .discountAmount(discAmount)
-                    .finalRate(discFinalPrice)
+                    .finalRate(discRentalSum)
                     .vatPercentage(vatPercentage)
                     .vatAmount(discVat)
-                    .totalWithVat(discFinalPrice.add(discVat))
+                    .totalWithVat(discRentalSum.add(discVat))
                     .promoCode(promoCode)
                     .promoDiscountPercentage(promoDiscountPct)
                     .build());
 
-            // RENTAL_ONLY: rental without CDW
+            // RENTAL_ONLY: rental without CDW (subtract CDW from pre-VAT amounts)
             BigDecimal totalCdw = cdwPerDay.multiply(BigDecimal.valueOf(soldDays));
-            BigDecimal basicFinalRate = discFinalPrice.subtract(totalCdw).max(BigDecimal.ZERO);
             BigDecimal basicBaseRate = (discRentalSum.add(discAmount)).subtract(totalCdw).max(BigDecimal.ZERO);
             BigDecimal basicDiscountAmount = basicBaseRate.multiply(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal basicFinalRate = discRentalSum.subtract(totalCdw).max(BigDecimal.ZERO);
             BigDecimal basicVatAmount = basicFinalRate.multiply(vatPercentage)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
@@ -230,23 +231,25 @@ public class PricingService {
                     .build());
         } else {
             // No promotion — use original prices
+            // finalPrice from pricing service already includes VAT
             BigDecimal fullBaseRate = pricePerDay.multiply(BigDecimal.valueOf(soldDays));
             BigDecimal fullDiscountAmount = fullBaseRate.multiply(discountPercentage)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal fullVatAmount = finalPrice.multiply(vatPercentage)
+            BigDecimal fullRateBeforeVat = fullBaseRate.subtract(fullDiscountAmount);
+            BigDecimal fullVatAmount = fullRateBeforeVat.multiply(vatPercentage)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
             packages.add(PricingPackage.builder()
                     .type("PAY_AND_GO").description("Rental with CDW insurance included")
                     .baseRate(fullBaseRate).discountPercentage(discountPercentage)
-                    .discountAmount(fullDiscountAmount).finalRate(finalPrice).vatPercentage(vatPercentage)
-                    .vatAmount(fullVatAmount).totalWithVat(finalPrice.add(fullVatAmount)).build());
+                    .discountAmount(fullDiscountAmount).finalRate(fullRateBeforeVat).vatPercentage(vatPercentage)
+                    .vatAmount(fullVatAmount).totalWithVat(fullRateBeforeVat.add(fullVatAmount)).build());
 
             BigDecimal totalCdw = cdwPerDay.multiply(BigDecimal.valueOf(soldDays));
-            BigDecimal basicFinalRate = finalPrice.subtract(totalCdw).max(BigDecimal.ZERO);
             BigDecimal basicBaseRate = fullBaseRate.subtract(totalCdw).max(BigDecimal.ZERO);
             BigDecimal basicDiscountAmount = basicBaseRate.multiply(discountPercentage)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal basicFinalRate = basicBaseRate.subtract(basicDiscountAmount);
             BigDecimal basicVatAmount = basicFinalRate.multiply(vatPercentage)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
