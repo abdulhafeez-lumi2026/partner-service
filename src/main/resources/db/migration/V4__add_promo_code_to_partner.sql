@@ -1,0 +1,1 @@
+ALTER TABLE partner ADD COLUMN promo_code VARCHAR(100) NULL;

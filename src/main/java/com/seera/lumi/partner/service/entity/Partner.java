@@ -77,6 +77,9 @@ public class Partner {
     @Column(name = "allowed_vehicle_groups", columnDefinition = "TEXT")
     private String allowedVehicleGroups;
 
+    @Column(name = "promo_code", length = 100)
+    private String promoCode;
+
     @Column(name = "webhook_url", length = 500)
     private String webhookUrl;
 

@@ -20,4 +20,6 @@ public interface PartnerRepository extends JpaRepository<Partner, Long> {
     Optional<Partner> findByApiKeyHash(String apiKeyHash);
 
     List<Partner> findAllByStatus(PartnerStatus status);
+
+    Optional<Partner> findByDebtorCode(String debtorCode);
 }
