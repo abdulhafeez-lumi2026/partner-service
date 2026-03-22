@@ -199,7 +199,7 @@ public class PricingService {
                     .baseRate(discRentalSum.add(discAmount))
                     .discountPercentage(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
                     .discountAmount(discAmount)
-                    .finalRate(discRentalSum)
+                    .finalRateExcludingVAT(discRentalSum)
                     .vatPercentage(vatPercentage)
                     .vatAmount(discVat)
                     .totalWithVat(discRentalSum.add(discVat))
@@ -222,7 +222,7 @@ public class PricingService {
                     .baseRate(basicBaseRate)
                     .discountPercentage(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
                     .discountAmount(basicDiscountAmount)
-                    .finalRate(basicFinalRate)
+                    .finalRateExcludingVAT(basicFinalRate)
                     .vatPercentage(vatPercentage)
                     .vatAmount(basicVatAmount)
                     .totalWithVat(basicFinalRate.add(basicVatAmount))
@@ -242,7 +242,7 @@ public class PricingService {
             packages.add(PricingPackage.builder()
                     .type("PAY_AND_GO").description("Rental with CDW insurance included")
                     .baseRate(fullBaseRate).discountPercentage(discountPercentage)
-                    .discountAmount(fullDiscountAmount).finalRate(fullRateBeforeVat).vatPercentage(vatPercentage)
+                    .discountAmount(fullDiscountAmount).finalRateExcludingVAT(fullRateBeforeVat).vatPercentage(vatPercentage)
                     .vatAmount(fullVatAmount).totalWithVat(fullRateBeforeVat.add(fullVatAmount)).build());
 
             BigDecimal totalCdw = cdwPerDay.multiply(BigDecimal.valueOf(soldDays));
@@ -256,7 +256,7 @@ public class PricingService {
             packages.add(PricingPackage.builder()
                     .type("RENTAL_ONLY").description("Rental without CDW insurance")
                     .baseRate(basicBaseRate).discountPercentage(discountPercentage)
-                    .discountAmount(basicDiscountAmount).finalRate(basicFinalRate).vatPercentage(vatPercentage)
+                    .discountAmount(basicDiscountAmount).finalRateExcludingVAT(basicFinalRate).vatPercentage(vatPercentage)
                     .vatAmount(basicVatAmount).totalWithVat(basicFinalRate.add(basicVatAmount)).build());
         }
 

@@ -20,7 +20,7 @@ public class PricingPackage {
     private BigDecimal baseRate;
     private BigDecimal discountPercentage;
     private BigDecimal discountAmount;
-    private BigDecimal finalRate;
+    private BigDecimal finalRateExcludingVAT;
     private BigDecimal vatPercentage;
     private BigDecimal vatAmount;
     private BigDecimal totalWithVat;
