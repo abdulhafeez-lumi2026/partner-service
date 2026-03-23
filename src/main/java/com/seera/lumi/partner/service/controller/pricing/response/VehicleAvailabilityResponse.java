@@ -16,7 +16,5 @@ import java.util.List;
 public class VehicleAvailabilityResponse {
 
     private String vehicleGroup;
-    private Integer dailyKmAllowance;
-    private Double extraKmCharge;
     private List<PricingPackage> packages;
 }

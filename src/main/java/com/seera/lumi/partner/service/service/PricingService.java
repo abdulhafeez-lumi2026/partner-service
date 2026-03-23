@@ -82,14 +82,11 @@ public class PricingService {
                     .map(offer -> {
                         String groupCode = offer.getVehicleGroupCode() != null
                                 ? offer.getVehicleGroupCode() : String.valueOf(offer.getGroupId());
-                        log.info("Offer groupId={}, groupCode={}, dailyKmsAllowance={}, extraKmsCharge={}",
-                                offer.getGroupId(), groupCode, offer.getDailyKmsAllowance(), offer.getExtraKmsCharge());
+                        log.info("Offer groupId={}, groupCode={}", offer.getGroupId(), groupCode);
                         List<PricingPackage> packages = buildPricingPackages(offer);
 
                         return VehicleAvailabilityResponse.builder()
                                 .vehicleGroup(groupCode)
-                                .dailyKmAllowance(offer.getDailyKmsAllowance())
-                                .extraKmCharge(offer.getExtraKmsCharge())
                                 .packages(packages)
                                 .build();
                     })

@@ -1,5 +1,6 @@
 package com.seera.lumi.partner.service.client.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,6 +36,7 @@ public class RentalOffersResponse {
         private String cdwPerDay;
         private String pricePerDay;
         private Long groupId;
+        @JsonProperty("extCarGroup")
         private String vehicleGroupCode;
         private boolean available;
         private boolean cdwOn;
