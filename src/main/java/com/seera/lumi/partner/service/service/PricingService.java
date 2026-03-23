@@ -8,6 +8,7 @@ import com.seera.lumi.partner.service.client.response.VehicleQuoteResponse;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalAvailabilityRequest;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalQuoteRequest;
 import com.seera.lumi.partner.service.controller.pricing.response.ActivePromotionResponse;
+import com.seera.lumi.partner.service.controller.pricing.response.AvailabilitySearchResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.PricingPackage;
 import com.seera.lumi.partner.service.controller.pricing.response.QuoteResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.VehicleAvailabilityResponse;
@@ -42,7 +43,7 @@ public class PricingService {
     private final PromotionCacheService promotionCacheService;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public List<VehicleAvailabilityResponse> searchAvailability(InternalAvailabilityRequest request) {
+    public AvailabilitySearchResponse searchAvailability(InternalAvailabilityRequest request) {
         long totalStart = System.currentTimeMillis();
         try {
             SearchOffersRequest offersRequest = SearchOffersRequest.builder()
@@ -60,7 +61,14 @@ public class PricingService {
 
             log.info("Pricing service response: {}", offersResponse);
             if (offersResponse == null || offersResponse.getData() == null) {
-                return List.of();
+                return AvailabilitySearchResponse.builder()
+                        .pickupLocationId(request.getPickupLocationId())
+                        .dropoffLocationId(request.getDropoffLocationId())
+                        .pickupDateTime(request.getPickupDateTime())
+                        .dropoffDateTime(request.getDropoffDateTime())
+                        .totalVehicles(0)
+                        .vehicles(List.of())
+                        .build();
             }
 
             List<String> allowedGroups = request.getAllowedVehicleGroups();
@@ -69,14 +77,17 @@ public class PricingService {
             List<VehicleAvailabilityResponse> result = offersResponse.getData().stream()
                     .filter(RentalOffersResponse.VehicleOfferData::isAvailable)
                     .filter(offer -> allowedGroups == null || allowedGroups.isEmpty()
-                            || allowedGroups.contains(String.valueOf(offer.getGroupId())))
+                            || allowedGroups.contains(String.valueOf(offer.getGroupId()))
+                            || allowedGroups.contains(offer.getVehicleGroupCode()))
                     .map(offer -> {
-                        log.info("Offer groupId={}, dailyKmsAllowance={}, extraKmsCharge={}",
-                                offer.getGroupId(), offer.getDailyKmsAllowance(), offer.getExtraKmsCharge());
+                        String groupCode = offer.getVehicleGroupCode() != null
+                                ? offer.getVehicleGroupCode() : String.valueOf(offer.getGroupId());
+                        log.info("Offer groupId={}, groupCode={}, dailyKmsAllowance={}, extraKmsCharge={}",
+                                offer.getGroupId(), groupCode, offer.getDailyKmsAllowance(), offer.getExtraKmsCharge());
                         List<PricingPackage> packages = buildPricingPackages(offer);
 
                         return VehicleAvailabilityResponse.builder()
-                                .vehicleGroup(String.valueOf(offer.getGroupId()))
+                                .vehicleGroup(groupCode)
                                 .dailyKmAllowance(offer.getDailyKmsAllowance())
                                 .extraKmCharge(offer.getExtraKmsCharge())
                                 .packages(packages)
@@ -86,10 +97,31 @@ public class PricingService {
             long buildMs = System.currentTimeMillis() - buildStart;
             log.info("[TIMING] package building: {}ms ({}s)", buildMs, buildMs / 1000.0);
 
+            // Extract promoCode from the first vehicle's packages (if available)
+            String promoCode = null;
+            if (!result.isEmpty() && result.get(0).getPackages() != null && !result.get(0).getPackages().isEmpty()) {
+                // Extract from the first offer's price details
+                RentalOffersResponse.VehicleOfferData firstOffer = offersResponse.getData().stream()
+                        .filter(RentalOffersResponse.VehicleOfferData::isAvailable)
+                        .findFirst()
+                        .orElse(null);
+                if (firstOffer != null) {
+                    promoCode = extractPromoCode(firstOffer.getPriceDetails());
+                }
+            }
+
             long totalMs = System.currentTimeMillis() - totalStart;
             log.info("[TIMING] total searchAvailability: {}ms ({}s)", totalMs, totalMs / 1000.0);
 
-            return result;
+            return AvailabilitySearchResponse.builder()
+                    .pickupLocationId(request.getPickupLocationId())
+                    .dropoffLocationId(request.getDropoffLocationId())
+                    .pickupDateTime(request.getPickupDateTime())
+                    .dropoffDateTime(request.getDropoffDateTime())
+                    .promoCode(promoCode)
+                    .totalVehicles(result.size())
+                    .vehicles(result)
+                    .build();
         } catch (FeignException e) {
             log.error("Failed to search availability: status={}, message={}", e.status(), e.getMessage(), e);
             throw new BusinessException(e, BaseError.AVAILABILITY_SEARCH_FAILED);
@@ -176,7 +208,6 @@ public class PricingService {
         Map<String, Object> allDiscount = priceDetails != null
                 ? (Map<String, Object>) priceDetails.get("allDiscountDetails") : null;
 
-        String promoCode = extractPromoCode(priceDetails);
         BigDecimal promoDiscountPct = null;
 
         if (allDiscount != null) {
@@ -196,15 +227,13 @@ public class PricingService {
             packages.add(PricingPackage.builder()
                     .type("PAY_AND_GO")
                     .description("Rental with CDW insurance included")
-                    .baseRate(discRentalSum.add(discAmount))
-                    .discountPercentage(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
-                    .discountAmount(discAmount)
-                    .finalRateExcludingVAT(discRentalSum)
-                    .vatPercentage(vatPercentage)
-                    .vatAmount(discVat)
-                    .totalWithVat(discRentalSum.add(discVat))
-                    .promoCode(promoCode)
-                    .promoDiscountPercentage(promoDiscountPct)
+                    .subtotal(discRentalSum.add(discAmount))
+                    .discountPercent(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
+                    .discount(discAmount)
+                    .totalBeforeVat(discRentalSum)
+                    .vatPercent(vatPercentage)
+                    .vat(discVat)
+                    .totalDue(discRentalSum.add(discVat))
                     .build());
 
             // RENTAL_ONLY: rental without CDW (subtract CDW from pre-VAT amounts)
@@ -219,15 +248,13 @@ public class PricingService {
             packages.add(PricingPackage.builder()
                     .type("RENTAL_ONLY")
                     .description("Rental without CDW insurance")
-                    .baseRate(basicBaseRate)
-                    .discountPercentage(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
-                    .discountAmount(basicDiscountAmount)
-                    .finalRateExcludingVAT(basicFinalRate)
-                    .vatPercentage(vatPercentage)
-                    .vatAmount(basicVatAmount)
-                    .totalWithVat(basicFinalRate.add(basicVatAmount))
-                    .promoCode(promoCode)
-                    .promoDiscountPercentage(promoDiscountPct)
+                    .subtotal(basicBaseRate)
+                    .discountPercent(promoDiscountPct != null ? promoDiscountPct : BigDecimal.ZERO)
+                    .discount(basicDiscountAmount)
+                    .totalBeforeVat(basicFinalRate)
+                    .vatPercent(vatPercentage)
+                    .vat(basicVatAmount)
+                    .totalDue(basicFinalRate.add(basicVatAmount))
                     .build());
         } else {
             // No promotion — use original prices
@@ -241,9 +268,9 @@ public class PricingService {
 
             packages.add(PricingPackage.builder()
                     .type("PAY_AND_GO").description("Rental with CDW insurance included")
-                    .baseRate(fullBaseRate).discountPercentage(discountPercentage)
-                    .discountAmount(fullDiscountAmount).finalRateExcludingVAT(fullRateBeforeVat).vatPercentage(vatPercentage)
-                    .vatAmount(fullVatAmount).totalWithVat(fullRateBeforeVat.add(fullVatAmount)).build());
+                    .subtotal(fullBaseRate).discountPercent(discountPercentage)
+                    .discount(fullDiscountAmount).totalBeforeVat(fullRateBeforeVat).vatPercent(vatPercentage)
+                    .vat(fullVatAmount).totalDue(fullRateBeforeVat.add(fullVatAmount)).build());
 
             BigDecimal totalCdw = cdwPerDay.multiply(BigDecimal.valueOf(soldDays));
             BigDecimal basicBaseRate = fullBaseRate.subtract(totalCdw).max(BigDecimal.ZERO);
@@ -255,9 +282,9 @@ public class PricingService {
 
             packages.add(PricingPackage.builder()
                     .type("RENTAL_ONLY").description("Rental without CDW insurance")
-                    .baseRate(basicBaseRate).discountPercentage(discountPercentage)
-                    .discountAmount(basicDiscountAmount).finalRateExcludingVAT(basicFinalRate).vatPercentage(vatPercentage)
-                    .vatAmount(basicVatAmount).totalWithVat(basicFinalRate.add(basicVatAmount)).build());
+                    .subtotal(basicBaseRate).discountPercent(discountPercentage)
+                    .discount(basicDiscountAmount).totalBeforeVat(basicFinalRate).vatPercent(vatPercentage)
+                    .vat(basicVatAmount).totalDue(basicFinalRate.add(basicVatAmount)).build());
         }
 
         return packages;

@@ -35,6 +35,7 @@ public class RentalOffersResponse {
         private String cdwPerDay;
         private String pricePerDay;
         private Long groupId;
+        private String vehicleGroupCode;
         private boolean available;
         private boolean cdwOn;
         private int dailyKmsAllowance;

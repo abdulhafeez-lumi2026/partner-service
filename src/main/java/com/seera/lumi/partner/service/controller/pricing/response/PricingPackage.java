@@ -17,13 +17,11 @@ public class PricingPackage {
 
     private String type;
     private String description;
-    private BigDecimal baseRate;
-    private BigDecimal discountPercentage;
-    private BigDecimal discountAmount;
-    private BigDecimal finalRateExcludingVAT;
-    private BigDecimal vatPercentage;
-    private BigDecimal vatAmount;
-    private BigDecimal totalWithVat;
-    private String promoCode;
-    private BigDecimal promoDiscountPercentage;
+    private BigDecimal subtotal;
+    private BigDecimal discountPercent;
+    private BigDecimal discount;
+    private BigDecimal totalBeforeVat;
+    private BigDecimal vatPercent;
+    private BigDecimal vat;
+    private BigDecimal totalDue;
 }

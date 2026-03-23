@@ -3,16 +3,14 @@ package com.seera.lumi.partner.service.controller;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalAvailabilityRequest;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalQuoteRequest;
 import com.seera.lumi.partner.service.controller.pricing.response.ActivePromotionResponse;
+import com.seera.lumi.partner.service.controller.pricing.response.AvailabilitySearchResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.QuoteResponse;
-import com.seera.lumi.partner.service.controller.pricing.response.VehicleAvailabilityResponse;
 import com.seera.lumi.partner.service.service.PricingService;
 import com.seera.lumi.partner.service.service.PromotionCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @RestController
@@ -24,7 +22,7 @@ public class PricingInternalController {
     private final PromotionCacheService promotionCacheService;
 
     @PostMapping("/availability")
-    public ResponseEntity<List<VehicleAvailabilityResponse>> searchAvailability(
+    public ResponseEntity<AvailabilitySearchResponse> searchAvailability(
             @RequestBody InternalAvailabilityRequest request) {
         return ResponseEntity.ok(pricingService.searchAvailability(request));
     }
