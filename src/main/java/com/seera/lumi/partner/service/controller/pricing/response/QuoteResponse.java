@@ -18,6 +18,7 @@ public class QuoteResponse {
 
     private String quoteId;
     private String vehicleGroup;
+    private Long vehicleGroupId;
     private String pickupLocation;
     private String dropoffLocation;
     private String currency;

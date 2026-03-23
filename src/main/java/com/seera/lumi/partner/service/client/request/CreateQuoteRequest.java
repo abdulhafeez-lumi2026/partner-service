@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -20,7 +21,8 @@ public class CreateQuoteRequest {
     private Long vehicleGroupId;
     private String vehicleGroupCode;
     private String promoCode;
-    private String accountNo;
+    private String debtorCode;
     private Long insuranceId;
     private List<Long> addOnIds;
+    private Map<String, String> authorizationMatrix;
 }

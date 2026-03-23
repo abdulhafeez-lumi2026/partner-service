@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -42,6 +43,9 @@ public class PricingService {
     private final PricingClient pricingClient;
     private final PromotionCacheService promotionCacheService;
     private final RedisTemplate<String, Object> redisTemplate;
+
+    // Cache vehicle group code → pricing groupId mapping (populated from search results)
+    private final Map<String, Long> groupCodeToIdMap = new ConcurrentHashMap<>();
 
     public AvailabilitySearchResponse searchAvailability(InternalAvailabilityRequest request) {
         long totalStart = System.currentTimeMillis();
@@ -82,6 +86,10 @@ public class PricingService {
                     .map(offer -> {
                         String groupCode = offer.getVehicleGroupCode() != null
                                 ? offer.getVehicleGroupCode() : String.valueOf(offer.getGroupId());
+                        // Cache code → numeric groupId for quote creation
+                        if (offer.getGroupId() != null && offer.getVehicleGroupCode() != null) {
+                            groupCodeToIdMap.put(offer.getVehicleGroupCode(), offer.getGroupId());
+                        }
                         log.info("Offer groupId={}, groupCode={}", offer.getGroupId(), groupCode);
                         List<PricingPackage> packages = buildPricingPackages(offer);
 
@@ -128,13 +136,41 @@ public class PricingService {
     public QuoteResponse createQuote(InternalQuoteRequest request) {
         long totalStart = System.currentTimeMillis();
         try {
+            // Resolve vehicle group code to numeric ID (required by pricing service)
+            Long vehicleGroupId = groupCodeToIdMap.get(request.getVehicleGroup());
+            if (vehicleGroupId == null) {
+                log.warn("No cached groupId for code '{}', searching availability first", request.getVehicleGroup());
+                // Trigger a search to populate the mapping
+                SearchOffersRequest searchRequest = SearchOffersRequest.builder()
+                        .pickupBranchId(request.getPickupLocationId())
+                        .dropOffBranchId(request.getDropoffLocationId())
+                        .pickupDate(request.getPickupDateTime().toEpochSecond(ZoneOffset.UTC))
+                        .dropOffDate(request.getDropoffDateTime().toEpochSecond(ZoneOffset.UTC))
+                        .accountNo(request.getDebtorCode())
+                        .build();
+                RentalOffersResponse searchResponse = pricingClient.searchOffers(searchRequest);
+                if (searchResponse != null && searchResponse.getData() != null) {
+                    for (RentalOffersResponse.VehicleOfferData offer : searchResponse.getData()) {
+                        if (offer.getVehicleGroupCode() != null && offer.getGroupId() != null) {
+                            groupCodeToIdMap.put(offer.getVehicleGroupCode(), offer.getGroupId());
+                        }
+                    }
+                    vehicleGroupId = groupCodeToIdMap.get(request.getVehicleGroup());
+                }
+                if (vehicleGroupId == null) {
+                    throw new BusinessException(BaseError.QUOTE_CREATION_FAILED);
+                }
+            }
+
             CreateQuoteRequest quoteRequest = CreateQuoteRequest.builder()
                     .pickupBranchId(request.getPickupLocationId())
                     .dropOffBranchId(request.getDropoffLocationId())
                     .pickupDateTime(request.getPickupDateTime().toEpochSecond(ZoneOffset.UTC))
                     .dropOffDateTime(request.getDropoffDateTime().toEpochSecond(ZoneOffset.UTC))
+                    .vehicleGroupId(vehicleGroupId)
                     .vehicleGroupCode(request.getVehicleGroup())
-                    .accountNo(request.getDebtorCode())
+                    .debtorCode(request.getDebtorCode())
+                    .authorizationMatrix(buildDefaultAuthMatrix())
                     .build();
 
             long pricingStart = System.currentTimeMillis();
@@ -142,7 +178,7 @@ public class PricingService {
             long pricingMs = System.currentTimeMillis() - pricingStart;
             log.info("[TIMING] pricing-service createQuote: {}ms ({}s)", pricingMs, pricingMs / 1000.0);
 
-            String partnerQuoteId = UUID.randomUUID().toString();
+            String partnerQuoteId = "q2_" + UUID.randomUUID().toString();
 
             List<PricingPackage> packages = buildPricingPackagesFromQuote(quoteResult);
             String promoCode = extractPromoCode(quoteResult.getPriceDetails());
@@ -150,6 +186,7 @@ public class PricingService {
             QuoteResponse response = QuoteResponse.builder()
                     .quoteId(partnerQuoteId)
                     .vehicleGroup(request.getVehicleGroup())
+                    .vehicleGroupId(vehicleGroupId)
                     .packages(packages)
                     .pickupLocation(String.valueOf(request.getPickupLocationId()))
                     .dropoffLocation(String.valueOf(request.getDropoffLocationId()))
@@ -328,5 +365,24 @@ public class PricingService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private Map<String, String> buildDefaultAuthMatrix() {
+        return Map.ofEntries(
+                Map.entry("payRental", "N"),
+                Map.entry("payKm", "N"),
+                Map.entry("payFuel", "N"),
+                Map.entry("payInsurance", "N"),
+                Map.entry("payDamages", "N"),
+                Map.entry("payTraffic", "N"),
+                Map.entry("payDelivery", "N"),
+                Map.entry("payPickup", "N"),
+                Map.entry("payExtension", "N"),
+                Map.entry("payDropoffCharge", "N"),
+                Map.entry("payUnlimitedKm", "N"),
+                Map.entry("payBabySeat", "N"),
+                Map.entry("payGccPermit", "N"),
+                Map.entry("payAdditionalDriver", "N")
+        );
     }
 }
