@@ -1,0 +1,59 @@
+name: Code Vulnerability Scan
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+jobs:
+  build:
+    name: Build
+    runs-on: lumi-devops
+    env:
+      TRIVY_VULN: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner in repo
+        run: |
+          trivy fs --scanners vuln,secret,misconfig \
+            --format template \
+            --template "@/usr/local/share/trivy/templates/html.tpl" \
+            --output trivy-results.html \
+            --severity 'MEDIUM,HIGH,CRITICAL' \
+            --exit-code 1 ./ || echo "TRIVY_VULN=true" >> $GITHUB_ENV
+
+      - name: Process the report
+        if: env.TRIVY_VULN == 'true'
+        run: |
+          sed -n '/<body>/,/<\/body>/p' trivy-results.html > extracted-table.html
+          sed -i "$(grep -n 'Trivy Report' extracted-table.html | cut -d: -f1)s/.*/<h1> Vulnerability scan report <\/h1>/" extracted-table.html
+          table_content=$(<extracted-table.html)
+          echo "$table_content" > table_content.txt
+
+      - name: Publish report or upload to S3 if comment fails
+        if: env.TRIVY_VULN == 'true'
+        env:
+          AWS_REGION: eu-west-1
+          BUCKET_NAME: lumi-ultra-report
+        run: |
+          REPO_NAME=${{ github.repository }}
+          REPO_NAME=${REPO_NAME##*/}
+          TIME_STAMP=$(date +%Y%m%d%H%M%S)
+          S3_KEY="${REPO_NAME}/scan-results-${TIME_STAMP}.html"
+
+          # Try to post the comment with the report content
+          table_content=$(<table_content.txt)
+          if ! gh pr comment ${{ github.event.pull_request.number }} --body "$table_content"; then
+            echo "Comment too long, uploading report to S3..."
+            
+            # Upload the report to S3
+            aws s3 cp trivy-results.html s3://$BUCKET_NAME/$S3_KEY
+
+            # Generate the CloudFront URL
+            S3_URL="https://reports.lumirental.io/$S3_KEY"
+
+            # Post a comment with the link to the CloudFront URL
+            gh pr comment ${{ github.event.pull_request.number }} --body "The security scan report is too large to display here. Please [view the full report]($S3_URL)."
+          fi

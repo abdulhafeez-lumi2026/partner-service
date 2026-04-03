@@ -1,0 +1,47 @@
+environment: staging
+service:
+  type: ClusterIP
+  scheme: HTTP
+  port: 80
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: ingress-nginx-ondemand
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+    nginx.ingress.kubernetes.io/x-forwarded-prefix: "/partner-service/"
+  hosts:
+    ondemand.lumirental.com:
+      - /partner-service/(.*)
+
+hpa:
+  enabled: true
+  targetCPUUtilizationPercentage: 80
+  TargetAvgMemoryUtilization: 80
+replicaCount: 1
+maxReplicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 700Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+environment_variable:
+  enabled: true
+  data:
+      APP_NAME: "lumi-core-partner-service"
+      SERVER_PORT: "80"
+      SPRING_DATASOURCE_USERNAME: "lumi-core-partner-service"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://lumi-core-partner-service-rds/lumi-core-partner-service?useSSL=false&useUnicode=yes&characterEncoding=UTF-8&characterSetResults=UTF-8&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true"
+      SPRING_READ_REPLICA_DATASOURCE_USERNAME: "lumi-core-partner-service"
+      SPRING_READ_REPLICA_DATASOURCE_URL: "jdbc:mysql://lumi-core-partner-service-rds-ro/lumi-core-partner-service?useSSL=false&useUnicode=yes&characterEncoding=UTF-8&characterSetResults=UTF-8&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true"
+      SPRING_REDIS_HOST: "lumi-core-partner-service-redis"
+      SPRING_REDIS_PORT: "6379"
+
+log_alerts:
+  enabled: false
