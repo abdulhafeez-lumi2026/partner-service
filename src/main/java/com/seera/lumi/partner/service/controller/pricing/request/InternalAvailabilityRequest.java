@@ -18,7 +18,7 @@ public class InternalAvailabilityRequest {
     private Long dropoffLocationId;
     private LocalDateTime pickupDateTime;
     private LocalDateTime dropoffDateTime;
-    private String debtorCode;
+    private String partnerCode;
     private List<String> allowedBranches;
     private List<String> allowedVehicleGroups;
 }

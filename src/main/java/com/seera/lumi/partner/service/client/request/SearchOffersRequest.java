@@ -16,4 +16,5 @@ public class SearchOffersRequest {
     private Long pickupDate;
     private Long dropOffDate;
     private String accountNo;
+    private String partnerCode;
 }

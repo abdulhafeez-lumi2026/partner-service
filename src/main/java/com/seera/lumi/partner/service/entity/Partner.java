@@ -3,6 +3,7 @@ package com.seera.lumi.partner.service.entity;
 import com.seera.lumi.partner.service.enums.BookingMode;
 import com.seera.lumi.partner.service.enums.PartnerStatus;
 import com.seera.lumi.partner.service.enums.QuoteMode;
+import com.seera.lumi.partner.service.enums.RateType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -71,14 +72,16 @@ public class Partner {
     @Builder.Default
     private BookingMode bookingMode = BookingMode.PAY_LATER;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rate_type", nullable = false, length = 10)
+    @Builder.Default
+    private RateType rateType = RateType.B2C;
+
     @Column(name = "allowed_branches", columnDefinition = "TEXT")
     private String allowedBranches;
 
     @Column(name = "allowed_vehicle_groups", columnDefinition = "TEXT")
     private String allowedVehicleGroups;
-
-    @Column(name = "promo_code", length = 100)
-    private String promoCode;
 
     @Column(name = "webhook_url", length = 500)
     private String webhookUrl;

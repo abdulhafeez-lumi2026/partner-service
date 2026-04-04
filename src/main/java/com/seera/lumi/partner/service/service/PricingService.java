@@ -7,13 +7,15 @@ import com.seera.lumi.partner.service.client.response.RentalOffersResponse;
 import com.seera.lumi.partner.service.client.response.VehicleQuoteResponse;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalAvailabilityRequest;
 import com.seera.lumi.partner.service.controller.pricing.request.InternalQuoteRequest;
-import com.seera.lumi.partner.service.controller.pricing.response.ActivePromotionResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.AvailabilitySearchResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.PricingPackage;
 import com.seera.lumi.partner.service.controller.pricing.response.QuoteResponse;
 import com.seera.lumi.partner.service.controller.pricing.response.VehicleAvailabilityResponse;
+import com.seera.lumi.partner.service.entity.Partner;
+import com.seera.lumi.partner.service.enums.RateType;
 import com.seera.lumi.partner.service.exception.BaseError;
 import com.seera.lumi.partner.service.exception.BusinessException;
+import com.seera.lumi.partner.service.repository.PartnerRepository;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,29 +43,33 @@ public class PricingService {
     private static final long QUOTE_TTL_MINUTES = 30;
 
     private final PricingClient pricingClient;
-    private final PromotionCacheService promotionCacheService;
+    private final PartnerRepository partnerRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
     // Cache vehicle group code → pricing groupId mapping (populated from search results)
     private final Map<String, Long> groupCodeToIdMap = new ConcurrentHashMap<>();
 
+    private static final String B2C_ACCOUNT = "DEFAULT";
+
     public AvailabilitySearchResponse searchAvailability(InternalAvailabilityRequest request) {
         long totalStart = System.currentTimeMillis();
         try {
+            Partner partner = resolvePartner(request.getPartnerCode());
+            String accountNo = resolveAccountNo(partner);
+
             SearchOffersRequest offersRequest = SearchOffersRequest.builder()
                     .pickupBranchId(request.getPickupLocationId())
                     .dropOffBranchId(request.getDropoffLocationId())
                     .pickupDate(request.getPickupDateTime().toEpochSecond(ZoneOffset.UTC))
                     .dropOffDate(request.getDropoffDateTime().toEpochSecond(ZoneOffset.UTC))
-                    .accountNo(request.getDebtorCode())
+                    .accountNo(accountNo)
+                    .partnerCode(partner.getPartnerCode())
                     .build();
 
             long pricingStart = System.currentTimeMillis();
             RentalOffersResponse offersResponse = pricingClient.searchOffers(offersRequest);
             long pricingMs = System.currentTimeMillis() - pricingStart;
             log.info("[TIMING] pricing-service searchOffers: {}ms ({}s)", pricingMs, pricingMs / 1000.0);
-
-            log.info("Pricing service response: {}", offersResponse);
             if (offersResponse == null || offersResponse.getData() == null) {
                 return AvailabilitySearchResponse.builder()
                         .pickupLocationId(request.getPickupLocationId())
@@ -136,6 +142,9 @@ public class PricingService {
     public QuoteResponse createQuote(InternalQuoteRequest request) {
         long totalStart = System.currentTimeMillis();
         try {
+            Partner partner = resolvePartner(request.getPartnerCode());
+            String accountNo = resolveAccountNo(partner);
+
             // Resolve vehicle group code to numeric ID (required by pricing service)
             Long vehicleGroupId = groupCodeToIdMap.get(request.getVehicleGroup());
             if (vehicleGroupId == null) {
@@ -146,7 +155,8 @@ public class PricingService {
                         .dropOffBranchId(request.getDropoffLocationId())
                         .pickupDate(request.getPickupDateTime().toEpochSecond(ZoneOffset.UTC))
                         .dropOffDate(request.getDropoffDateTime().toEpochSecond(ZoneOffset.UTC))
-                        .accountNo(request.getDebtorCode())
+                        .accountNo(accountNo)
+                        .partnerCode(partner.getPartnerCode())
                         .build();
                 RentalOffersResponse searchResponse = pricingClient.searchOffers(searchRequest);
                 if (searchResponse != null && searchResponse.getData() != null) {
@@ -169,7 +179,9 @@ public class PricingService {
                     .dropOffDateTime(request.getDropoffDateTime().toEpochSecond(ZoneOffset.UTC))
                     .vehicleGroupId(vehicleGroupId)
                     .vehicleGroupCode(request.getVehicleGroup())
-                    .debtorCode(request.getDebtorCode())
+                    .debtorCode(accountNo)
+                    .insuranceId(request.getInsuranceId())
+                    .addOnIds(request.getAddOnIds())
                     .authorizationMatrix(buildDefaultAuthMatrix())
                     .build();
 
@@ -365,6 +377,18 @@ public class PricingService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    private Partner resolvePartner(String partnerCode) {
+        return partnerRepository.findByPartnerCode(partnerCode)
+                .orElseThrow(() -> new BusinessException(BaseError.PARTNER_NOT_FOUND));
+    }
+
+    private String resolveAccountNo(Partner partner) {
+        if (partner.getRateType() == RateType.B2C) {
+            return B2C_ACCOUNT;
+        }
+        return partner.getDebtorCode();
     }
 
     private Map<String, String> buildDefaultAuthMatrix() {
