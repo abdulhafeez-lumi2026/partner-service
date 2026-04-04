@@ -22,7 +22,7 @@ secret_variable:
   data:
     - SPRING_DATASOURCE_PASSWORD
     - SPRING_READ_REPLICA_DATASOURCE_PASSWORD
-    - JWT_AUTH_TOKEN_SECRET
+    - JWT_SECRET
 
 istio:
     enabled: true

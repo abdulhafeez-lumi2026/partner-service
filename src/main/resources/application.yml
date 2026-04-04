@@ -44,7 +44,7 @@ feign:
 
 api:
   pricing:
-    baseUrl: ${PRICING_SERVICE_URL:https://api-preprod.lumirental.com/pricing-service}
+    baseUrl: ${PRICING_SERVICE_URL:http://lumi-core-pricing-service.core.svc.cluster.local}
 
 management:
   endpoints:
