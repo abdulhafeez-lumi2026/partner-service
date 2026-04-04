@@ -1,0 +1,38 @@
+name: SonarQube Scan
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  sonar:
+    name: SonarQube Scan
+    runs-on: Lumi-selfhosted
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin' # Options: 'temurin', 'zulu', etc.
+          cache: 'maven'
+
+      - name: SonarQube Scan
+        run: mvn -B clean verify sonar:sonar -Dsonar.host.url=http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000  -Dsonar.token=$SONAR_GITHUB_BOT_TOKEN --settings /tmp/settings2.xml
+      
+      - name: Post-SonarQube Result
+        if: success()
+        run: |
+          echo "Sonar Analysis completed successfully"
+
+          groupId=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+          artifactId=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          componentKey="${groupId}:${artifactId}"
+
+          sonarAnalysisReport="https://sonar.lumirental.io/dashboard?id=$componentKey"
+          gh pr comment ${{ github.event.pull_request.number }} --body "Sonar Analysis completed. Please [view the full analysis report]($sonarAnalysisReport)."

@@ -1,0 +1,54 @@
+Component: lumi-core
+SubComponent: partner-service
+
+readinessProbePath: /actuator/health
+livenessProbePath: /actuator/health
+
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+readinessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+secret_variable:
+  enabled: true
+  data:
+    - SPRING_DATASOURCE_PASSWORD
+    - SPRING_READ_REPLICA_DATASOURCE_PASSWORD
+    - JWT_AUTH_TOKEN_SECRET
+
+istio:
+    enabled: true
+    virtualService:
+        enabled: true
+        destinationRule:
+            trafficPolicy:
+                tls:
+                    mode: DISABLE
+
+    gateway:
+        enabled: true
+        host: "*"
+        name: "core-api-gateway"
+        match:
+            - uri: /partner-service/
+                rewrite: /
+
+    customHeaders:
+      enabled: true
+      headers:
+        X-Forwarded-Prefix: /partner-service/
+
+deployment_custom_annotations:
+  enabled: true
+  annotations:
+    prometheus.io/path: "/actuator/prometheus"
+    prometheus.io/port: "80"
+    prometheus.io/scrape: "true"
