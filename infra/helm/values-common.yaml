@@ -32,7 +32,6 @@ istio:
             trafficPolicy:
                 tls:
                     mode: DISABLE
-
     gateway:
         enabled: true
         host: "*"
